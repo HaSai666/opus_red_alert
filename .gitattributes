@@ -1,0 +1,12 @@
+# 统一换行符。Windows 上 Git 默认会把 LF 转成 CRLF 写回工作区,
+# 对 JS/CSS 无影响,但会让 diff 噪声很大,且对二进制资产有风险。
+* text=auto eol=lf
+
+# 明确的二进制类型,禁止任何换行转换
+*.png binary
+*.jpg binary
+*.wasm binary
+*.ico binary
+
+# 依赖源码保持原样,减少无谓的 diff
+vendor/** -text -diff

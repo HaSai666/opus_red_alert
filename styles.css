@@ -1,0 +1,384 @@
+/* ══════════════════════════════════════════════════════════════
+   MECHA // ROGUE — HUD 与界面样式
+   设计约束：HUD 必须薄、暗、不遮挡。战场可读性优先于装饰。
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  --ink:        #e6e8ec;
+  --ink-dim:    #9aa3b0;
+  --ink-faint:  #5d6673;
+  --line:       #2e333d;
+  --accent:     #ff9a3c;
+  --hp:         #4ec9a0;
+  --heat:       #ff9a3c;
+  --boost:      #4a9ee8;
+  --danger:     #e8664a;
+  --rare:       #a07dd6;
+  --legend:     #e8a84a;
+  --common:     #5b93c9;
+  --mono: ui-monospace, "SF Mono", Consolas, "Cascadia Mono", monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #0a0b0e;
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: none;
+}
+
+#viewport { display: block; width: 100%; height: 100%; }
+
+/* 暂停/菜单时恢复光标 */
+body.show-cursor { cursor: default; }
+
+/* ── 通用覆盖层 ─────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: rgba(8, 9, 12, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.overlay[hidden] { display: none; }
+
+/* ── 启动画面 ───────────────────────────────── */
+.boot-inner { text-align: center; width: min(420px, 80vw); }
+
+.logo {
+  font: 700 34px/1 var(--mono);
+  letter-spacing: 6px;
+  margin-bottom: 28px;
+  color: var(--ink);
+}
+.logo .slash { color: var(--accent); margin: 0 4px; }
+
+.boot-bar {
+  height: 2px; background: #1e2229; border-radius: 2px;
+  overflow: hidden; margin-bottom: 14px;
+}
+#boot-fill {
+  height: 100%; width: 0%;
+  background: var(--accent);
+  transition: width 0.3s ease-out;
+}
+#boot-msg {
+  font-size: 12px; letter-spacing: 1.5px;
+  color: var(--ink-faint); text-transform: uppercase;
+}
+
+/* ── HUD 布局 ───────────────────────────────── */
+#hud { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+#hud[hidden] { display: none; }
+
+.hud-corner { position: absolute; }
+.hud-corner.tl { top: 22px; left: 24px; }
+.hud-corner.tr { top: 22px; right: 24px; text-align: right; }
+.hud-corner.bl { bottom: 22px; left: 24px; }
+
+.label {
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--ink-faint);
+  margin-bottom: 7px;
+}
+
+/* 左上一：血量 / 热量 / 冲刺 —— 热量是最需余光监控的资源，故与血量并列 */
+.vitals { display: flex; flex-direction: column; gap: 5px; }
+.vital { display: flex; align-items: center; gap: 8px; }
+
+.vital-bar {
+  width: 132px; height: 7px;
+  background: #191d24;
+  border: 1px solid #262b34;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.vital-bar > span {
+  display: block; height: 100%; width: 100%;
+  transform-origin: left center;
+  transition: transform 0.08s linear;
+}
+.vital-bar.hp   > span { background: linear-gradient(90deg, #2f8c69, var(--hp)); }
+.vital-bar.heat > span { background: linear-gradient(90deg, #c9862a, var(--heat)); }
+.vital-bar.boost> span { background: linear-gradient(90deg, #2f6fa8, var(--boost)); }
+
+/* 过热时热量条脉冲，制造紧迫感 */
+.vital-bar.heat.critical {
+  border-color: var(--danger);
+  box-shadow: 0 0 10px rgba(232, 102, 74, 0.55);
+}
+.vital-bar.heat.critical > span { background: linear-gradient(90deg, #e8664a, #ffb04a); }
+
+.vital-val {
+  font: 600 11px var(--mono);
+  color: var(--ink-dim);
+  min-width: 52px;
+}
+
+#overheat-warn {
+  margin-top: 9px;
+  font: 700 11px var(--mono);
+  letter-spacing: 3px;
+  color: var(--danger);
+  animation: blink 0.45s steps(2, start) infinite;
+}
+#overheat-warn[hidden] { display: none; }
+@keyframes blink { to { opacity: 0.15; } }
+
+/* 右上：房间进度 */
+.room-num {
+  font: 700 26px/1 var(--mono);
+  color: var(--ink);
+  letter-spacing: 2px;
+}
+.room-num em { color: var(--ink-faint); font-style: normal; margin: 0 3px; }
+.enemy-count {
+  margin-top: 6px;
+  font-size: 11px; letter-spacing: 1px; color: var(--ink-faint);
+}
+#val-enemies { color: var(--danger); font-weight: 700; }
+
+/* ── 准星 ───────────────────────────────────── */
+#crosshair {
+  position: absolute; top: 50%; left: 50%;
+  width: 26px; height: 26px;
+  transform: translate(-50%, -50%);
+}
+#crosshair i {
+  position: absolute; background: rgba(255, 190, 120, 0.78);
+  transition: opacity 0.1s;
+}
+/* 四个刻线 */
+#crosshair i:nth-child(1) { left: 50%; top: 0;    width: 1px; height: 7px; margin-left: -0.5px; }
+#crosshair i:nth-child(2) { left: 50%; bottom: 0; width: 1px; height: 7px; margin-left: -0.5px; }
+#crosshair i:nth-child(3) { top: 50%; left: 0;    height: 1px; width: 7px; margin-top: -0.5px; }
+#crosshair i:nth-child(4) { top: 50%; right: 0;   height: 1px; width: 7px; margin-top: -0.5px; }
+#crosshair::after {
+  content: ''; position: absolute; inset: 10px;
+  border: 1px solid rgba(255, 190, 120, 0.35); border-radius: 50%;
+}
+/* 过热时准星变红并扩散 */
+#crosshair.overheated i { background: var(--danger); }
+#crosshair.overheated::after { border-color: rgba(232, 102, 74, 0.7); inset: 6px; }
+
+/* ── 命中标记 ───────────────────────────────── */
+#hitmarker {
+  position: absolute; top: 50%; left: 50%;
+  width: 18px; height: 18px;
+  transform: translate(-50%, -50%) rotate(45deg) scale(0.6);
+  opacity: 0;
+  pointer-events: none;
+}
+#hitmarker::before, #hitmarker::after {
+  content: ''; position: absolute; background: #fff;
+}
+#hitmarker::before { left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; }
+#hitmarker::after  { top: 50%; left: 0; height: 2px; width: 100%; margin-top: -1px; }
+
+#hitmarker.pop { animation: hitpop 0.22s ease-out; }
+#hitmarker.kill::before, #hitmarker.kill::after { background: var(--danger); }
+@keyframes hitpop {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(45deg) scale(0.55); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(1.15); }
+}
+
+/* ── 受击暗角 ───────────────────────────────── */
+#damage-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center,
+    rgba(0,0,0,0) 38%, rgba(190, 40, 30, 0.42) 100%);
+  transition: opacity 0.18s ease-out;
+}
+#damage-vignette.flash { opacity: 1; transition: opacity 0s; }
+
+/* ── 左下：挂载与遗物 ───────────────────────── */
+.loadout { display: flex; gap: 8px; margin-bottom: 10px; }
+
+.wslot {
+  background: rgba(20, 24, 30, 0.72);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--ink-faint);
+  border-radius: 3px;
+  padding: 6px 10px;
+  min-width: 116px;
+  backdrop-filter: blur(3px);
+}
+.wslot.active { border-left-color: var(--accent); }
+.wslot b {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--ink); margin-bottom: 2px;
+}
+.wmeta { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.4px; }
+.wmeta i { font-style: normal; color: var(--accent); font-weight: 700; }
+
+.relic-strip { display: flex; gap: 5px; flex-wrap: wrap; max-width: 320px; }
+.relic {
+  width: 24px; height: 24px; border-radius: 3px;
+  display: grid; place-items: center;
+  font: 700 11px var(--mono);
+  border: 1px solid var(--line);
+}
+.relic.common   { background: #18222e; color: var(--common);  border-color: #2d4a66; }
+.relic.rare     { background: #221c2e; color: var(--rare);    border-color: #45356b; }
+.relic.legendary{ background: #2d2113; color: var(--legend);  border-color: #6b4a1c; }
+
+/* ── 提示条 ─────────────────────────────────── */
+#toast-stack {
+  position: absolute; bottom: 96px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse;
+  align-items: center; gap: 6px;
+}
+.toast {
+  background: rgba(18, 21, 27, 0.88);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  padding: 7px 15px;
+  border-radius: 3px;
+  font-size: 12px; color: var(--ink-dim);
+  letter-spacing: 0.4px;
+  animation: toast-in 0.3s ease-out;
+  backdrop-filter: blur(4px);
+}
+.toast strong { color: var(--accent); font-weight: 600; }
+.toast.fade { animation: toast-out 0.4s ease-in forwards; }
+@keyframes toast-in  { from { opacity: 0; transform: translateY(10px); } }
+@keyframes toast-out { to   { opacity: 0; transform: translateY(-6px); } }
+
+/* ── 遗物选择界面 ───────────────────────────── */
+.relic-panel { width: min(940px, 92vw); text-align: center; }
+
+.relic-title {
+  font: 600 14px var(--mono);
+  letter-spacing: 4px; color: var(--ink-dim);
+  margin-bottom: 26px;
+}
+
+.relic-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+.card {
+  background: rgba(22, 25, 31, 0.95);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 22px 18px;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.14s ease-out, border-color 0.14s, box-shadow 0.14s;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--tier, var(--line));
+}
+.card:hover, .card.focused {
+  transform: translateY(-5px);
+  border-color: var(--tier);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.55), 0 0 0 1px var(--tier) inset;
+}
+.card.common   { --tier: var(--common); }
+.card.rare     { --tier: var(--rare); }
+.card.legendary{ --tier: var(--legend); }
+
+.card .rarity {
+  font: 700 10px var(--mono); letter-spacing: 2px;
+  text-transform: uppercase; color: var(--tier);
+  margin-bottom: 10px;
+}
+.card .name {
+  font-size: 17px; font-weight: 600;
+  color: var(--ink); margin-bottom: 9px;
+}
+.card .desc { font-size: 12.5px; line-height: 1.65; color: var(--ink-dim); }
+.card .desc b { color: var(--ink); font-weight: 600; }
+.card .keyhint {
+  position: absolute; top: 12px; right: 14px;
+  font: 700 10px var(--mono); color: var(--ink-faint);
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.relic-hint {
+  margin-top: 26px; font-size: 12px; color: var(--ink-faint); letter-spacing: 0.6px;
+}
+kbd {
+  display: inline-block;
+  font: 600 10px var(--mono);
+  background: #23272f; border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px; padding: 1px 5px; margin: 0 2px;
+  color: var(--ink-dim);
+}
+
+/* ── 结算 / 暂停 ────────────────────────────── */
+.over-panel { text-align: center; width: min(520px, 88vw); }
+.over-panel h2 {
+  font: 700 30px var(--mono); letter-spacing: 5px;
+  margin-bottom: 30px;
+}
+#over-title.lose { color: var(--danger); }
+#over-title.win  { color: var(--hp); }
+
+.over-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 14px; margin-bottom: 34px;
+}
+.over-stats > div {
+  background: rgba(22, 25, 31, 0.8);
+  border: 1px solid var(--line); border-radius: 5px;
+  padding: 16px 8px;
+}
+.over-stats span {
+  display: block; font: 700 26px var(--mono);
+  color: var(--accent); margin-bottom: 5px;
+}
+.over-stats em {
+  font-style: normal; font-size: 11px;
+  letter-spacing: 1.5px; color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  font: 600 13px var(--mono);
+  letter-spacing: 3px; text-transform: uppercase;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 14px 30px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.16s, color 0.16s;
+}
+.btn-primary:hover { background: var(--accent); color: #12141a; }
+.btn-primary kbd { background: transparent; border-color: currentColor; color: inherit; }
+
+.paused-hint { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.6px; }
+
+/* ── 性能显示 ───────────────────────────────── */
+#perf {
+  position: fixed; top: 8px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  font: 600 11px var(--mono);
+  color: var(--ink-faint);
+  background: rgba(10, 11, 14, 0.7);
+  padding: 3px 10px; border-radius: 3px;
+  pointer-events: none;
+  display: none;
+  white-space: pre;
+}
+body.debug #perf { display: block; }
+
+@media (max-width: 780px) {
+  .relic-cards { grid-template-columns: 1fr; }
+  .hud-corner.bl { display: none; }
+}

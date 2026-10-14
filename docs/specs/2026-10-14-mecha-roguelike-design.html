@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计文档 — 第三人称机甲肉鸽射击游戏</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1c1f26;
+    --panel-2: #23272f;
+    --ink: #e6e8ec;
+    --ink-dim: #9aa3b0;
+    --ink-faint: #6b7480;
+    --line: #2e333d;
+    --accent: #ff9a3c;
+    --accent-dim: #7a4a1c;
+    --good: #4ec9a0;
+    --warn: #e8c04a;
+    --bad: #e8664a;
+    --mono: ui-monospace, "SF Mono", Consolas, "Cascadia Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 28px 120px; }
+
+  header.doc { border-bottom: 2px solid var(--line); padding-bottom: 28px; margin-bottom: 44px; }
+  header.doc h1 { font-size: 30px; margin: 0 0 10px; letter-spacing: -0.4px; }
+  .sub { color: var(--ink-dim); font-size: 15px; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 20px; font-size: 13px; color: var(--ink-faint); }
+  .meta-row b { color: var(--ink-dim); font-weight: 600; }
+
+  h2 {
+    font-size: 21px; margin: 56px 0 18px; padding-left: 13px;
+    border-left: 4px solid var(--accent); letter-spacing: -0.2px;
+  }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 17px; margin-right: 8px; }
+  h3 { font-size: 16px; margin: 30px 0 10px; color: var(--ink); }
+  h4 { font-size: 14px; margin: 22px 0 8px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.6px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+  code { font-family: var(--mono); font-size: 13px; background: var(--panel-2); padding: 2px 6px; border-radius: 4px; color: #d0d6e0; }
+  a { color: var(--accent); }
+
+  .callout {
+    background: var(--panel); border-left: 3px solid var(--accent);
+    padding: 14px 18px; margin: 18px 0; border-radius: 0 6px 6px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.bad { border-left-color: var(--bad); }
+  .callout.good { border-left-color: var(--good); }
+  .callout .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+    text-transform: uppercase; margin-bottom: 6px; color: var(--accent);
+  }
+  .callout.warn .tag { color: var(--warn); }
+  .callout.bad .tag { color: var(--bad); }
+  .callout.good .tag { color: var(--good); }
+  .callout p:first-of-type { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--ink-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  td.yes { color: var(--good); font-weight: 600; }
+  td.no { color: var(--bad); }
+  td.mid { color: var(--warn); }
+
+  pre {
+    background: #0e1014; border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px 20px; overflow-x: auto; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.55; color: #c8d0dc; margin: 18px 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+
+  /* 方案对比网格 */
+  .approaches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 22px 0; }
+  .approach {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 18px; display: flex; flex-direction: column;
+  }
+  .approach.chosen { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
+  .approach h4 { margin: 0 0 4px; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .approach .verdict {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 12px;
+  }
+  .approach.chosen .verdict { color: var(--accent); }
+  .approach .tradeoff {
+    font-size: 13px; color: var(--ink-dim); border-top: 1px solid var(--line);
+    padding-top: 12px; margin-top: 12px;
+  }
+  .approach ul { padding-left: 18px; font-size: 13.5px; margin: 8px 0; }
+  .approach li { margin: 4px 0; }
+
+  /* 界面草图 */
+  .mock {
+    background: #0e1014; border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; margin: 20px 0; font-family: var(--mono); font-size: 12px;
+  }
+  .hud {
+    background: linear-gradient(160deg, #1a2230 0%, #10141c 60%, #0c0e13 100%);
+    border: 1px solid #2a3140; border-radius: 6px; position: relative;
+    height: 320px; overflow: hidden;
+  }
+  .hud-grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(90,120,160,0.07) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(90,120,160,0.07) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .hud-center { position: absolute; inset: 0; display: grid; place-items: center; }
+  .crosshair { width: 22px; height: 22px; border: 1px solid rgba(255,180,100,0.55); border-radius: 50%; position: relative; }
+  .crosshair::before, .crosshair::after {
+    content: ''; position: absolute; background: rgba(255,180,100,0.7);
+  }
+  .crosshair::before { left: 10px; top: -6px; width: 1px; height: 8px; box-shadow: 0 26px 0 rgba(255,180,100,0.7); }
+  .crosshair::after { top: 10px; left: -6px; height: 1px; width: 8px; box-shadow: 26px 0 0 rgba(255,180,100,0.7); }
+
+  .hud-tl { position: absolute; top: 14px; left: 16px; }
+  .hud-tr { position: absolute; top: 14px; right: 16px; text-align: right; }
+  .hud-bl { position: absolute; bottom: 16px; left: 16px; width: 190px; }
+  .hud-br { position: absolute; bottom: 16px; right: 16px; width: 210px; }
+  .hud-label { font-size: 9px; letter-spacing: 1.2px; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
+
+  .bar { height: 9px; background: #1e2430; border-radius: 2px; overflow: hidden; margin-bottom: 7px; border: 1px solid #2a3140; }
+  .bar > span { display: block; height: 100%; }
+  .bar.hp > span { width: 72%; background: linear-gradient(90deg, #35a37a, #4ec9a0); }
+  .bar.heat > span { width: 58%; background: linear-gradient(90deg, #c9862a, #ff9a3c); }
+  .bar.boost > span { width: 85%; background: linear-gradient(90deg, #2f6fa8, #4a9ee8); }
+
+  .weapon-row { display: flex; gap: 8px; }
+  .wslot {
+    flex: 1; background: #1a1f28; border: 1px solid #2a3140; border-radius: 3px;
+    padding: 6px 8px; font-size: 10px; color: #93a1b5;
+  }
+  .wslot b { display: block; color: #d5dbe5; font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .wslot .ammo { color: #ff9a3c; font-family: var(--mono); }
+
+  .relic-strip { display: flex; gap: 5px; margin-top: 8px; }
+  .relic {
+    width: 26px; height: 26px; border-radius: 3px; border: 1px solid #2a3140;
+    display: grid; place-items: center; font-size: 11px;
+  }
+  .relic.r1 { background: #1a2430; color: #5b93c9; border-color: #2d4a66; }
+  .relic.r2 { background: #241f30; color: #a07dd6; border-color: #4a3a66; }
+  .relic.r3 { background: #302414; color: #e8a84a; border-color: #6b4a1c; }
+
+  .enemy-marker {
+    position: absolute; width: 26px; height: 26px; border: 1px solid rgba(232,102,74,0.7);
+    border-radius: 50%; display: grid; place-items: center; font-size: 9px; color: #e8664a;
+  }
+
+  /* 遗物选择界面草图 */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px; font-size: 12px;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .rarity { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .card.common .rarity { color: #5b93c9; }
+  .card.rare .rarity { color: #a07dd6; }
+  .card.legend .rarity { color: #e8a84a; }
+  .card .name { font-weight: 600; font-size: 13px; color: var(--ink); margin-bottom: 6px; }
+  .card .desc { color: var(--ink-dim); line-height: 1.55; }
+
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px;
+    font-weight: 600; letter-spacing: 0.3px; border: 1px solid;
+  }
+  .pill.star { color: var(--accent); border-color: var(--accent-dim); background: rgba(255,154,60,0.07); }
+  .pill.impl { color: var(--ink-faint); border-color: var(--line); background: var(--panel); }
+
+  .legend-inline { font-size: 12.5px; color: var(--ink-faint); margin-top: 8px; }
+
+  footer.doc {
+    margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint);
+  }
+  @media (max-width: 820px) {
+    .approaches, .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>第三人称机甲肉鸽射击游戏 — 设计文档</h1>
+  <div class="sub">以「画面质感」为首要目标、以「AI 可独立完成」为工程约束的第一版设计。</div>
+  <div class="meta-row">
+    <span><b>日期</b> 2026-10-14</span>
+    <span><b>状态</b> 待用户确认</span>
+    <span><b>项目目录</b> <code>E:\wk_github\mecha-roguelike</code></span>
+    <span><b>类型</b> 垂直切片 → 可玩完整版</span>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════ 1 -->
+<h2><span class="num">01</span>概述</h2>
+
+<p>一款处在开发早期的<strong>第三人称机甲射击 + 肉鸽（Roguelike）</strong>游戏。玩家操控一台作战机甲，空投进入程序化生成的废弃空间站，逐房间清剿敌人、获取遗物强化，最终击败区域 Boss 撤离。</p>
+
+<p>本设计的所有取舍都服务于两个目标，且两个目标之间存在明确优先级：</p>
+
+<ol>
+  <li><strong>画面质感优先</strong> — 视觉效果是这个项目的立项理由。凡是有利于画面的决策，优先于开发便利性。</li>
+  <li><strong>工程上必须可由 AI 主导开发</strong> — 开发者本人无 3D 美术能力，且协作方（Claude）无法直接看到运行画面。这决定了技术栈、资产策略和调试接口的形态。</li>
+</ol>
+
+<h3>为什么选这个题材组合</h3>
+<p>经过对四类候选方向的比较（太空舰船战斗、抽象几何、单场景沉浸空间、RTS），最终选定第三人称机甲射击，原因是它在「画面性价比」和「工程可行性」上同时占优：</p>
+
+<table>
+  <thead><tr><th>候选方向</th><th>画面上限</th><th>资产成本</th><th>AI 可独立开发度</th><th>结论</th></tr></thead>
+  <tbody>
+    <tr><td>太空舰船战斗</td><td class="mid">高</td><td class="yes">极低</td><td class="yes">高</td><td>可行，但玩法偏薄</td></tr>
+    <tr><td>抽象几何视觉</td><td class="yes">高</td><td class="yes">无</td><td class="yes">高</td><td>不像「游戏」</td></tr>
+    <tr><td>红警类 RTS</td><td class="no">低</td><td class="no">极高</td><td class="mid">中</td><td class="no">画面性价比最差</td></tr>
+    <tr><td><strong>第三人称机甲射击</strong></td><td class="yes">高</td><td class="yes">低</td><td class="mid">中高</td><td class="yes">选定</td></tr>
+  </tbody>
+</table>
+
+<div class="callout good">
+  <span class="tag">核心洞察</span>
+  <p><strong>机械体主角是本案的杠杆点。</strong>人形角色的成本大头是骨骼绑定、面部和动画混合过渡——而机甲的动作僵硬是「合理的」，腿部动画可以完全省略（悬浮/履带），硬表面几何体可由程序化生成，画面质感从<strong>粒子与后处理</strong>而非从模型精度来。这一步直接绕开了整个项目最贵、最依赖人工调参的部分。</p>
+</div>
+
+<!-- ══════════════════════════════════════════ 2 -->
+<h2><span class="num">02</span>方案对比与决策</h2>
+
+<p>技术栈的选择不是围绕「哪个引擎最强」，而是围绕「谁能让我（AI）独立闭环」。三者的核心差异在于<strong>反馈循环的长短</strong>。</p>
+
+<div class="approaches">
+  <div class="approach">
+    <h4>① Unreal Engine 5</h4>
+    <div class="verdict">画面上限第一</div>
+    <ul>
+      <li>Nanite / Lumen 让摆素材即出电影感</li>
+      <li>Fab 每月免费资产永久授权、可商用</li>
+      <li>Quixel 1500+ 扫描资产铺环境</li>
+    </ul>
+    <div class="tradeoff">
+      <strong>否决原因：</strong>编辑器 GUI 驱动，我无法自测运行结果；C++ 编译 15–60 秒；每次改动需要开发者截图往返。反馈循环以分钟至十分钟计，垂直切片的迭代成本不可接受。
+    </div>
+  </div>
+
+  <div class="approach">
+    <h4>② Godot 4</h4>
+    <div class="verdict">折中方案</div>
+    <ul>
+      <li>MIT 授权，无版税无门槛</li>
+      <li>GDScript 无编译，迭代快于 UE5</li>
+      <li>下载仅约 60MB</li>
+    </ul>
+    <div class="tradeoff">
+      <strong>否决原因：</strong>3D 高端画面上限明显低于 UE5，做不出「质感」这个立项理由；同时它同样是编辑器 GUI 驱动，我盲写代码的劣势没有改善。两头不占优。
+    </div>
+  </div>
+
+  <div class="approach chosen">
+    <h4>③ Three.js 浏览器栈</h4>
+    <div class="verdict">✓ 选定</div>
+    <ul>
+      <li>秒级热重载，我能自己跑起来验证</li>
+      <li>shader / 粒子 / 后处理全部由代码驱动</li>
+      <li>CC0 GLTF 资产可直接加载</li>
+      <li>无需安装，浏览器即运行</li>
+    </ul>
+    <div class="tradeoff">
+      <strong>接受的代价：</strong>单场景几何复杂度不如 Nanite 级。但本作画面主体是<strong>屏幕空间特效</strong>（辉光、体积光、能量武器、爆炸粒子），而非百万面三角场景，此限制不构成瓶颈。
+    </div>
+  </div>
+</div>
+
+<h3>选定的完整技术栈</h3>
+<p>以下组合是 three.js 官方文档 <em>Libraries and Plugins</em> 页亲自罗列的推荐搭配，非偏门选型：</p>
+
+<table>
+  <thead><tr><th>层</th><th>选型</th><th>职责</th></tr></thead>
+  <tbody>
+    <tr><td>语言 / 构建</td><td><code>TypeScript</code> + <code>Vite</code></td><td>类型安全 · HMR 秒级热重载</td></tr>
+    <tr><td>渲染</td><td><code>three.js</code></td><td>场景图、材质、后处理链</td></tr>
+    <tr><td>物理</td><td><code>@dimforge/rapier3d-compat</code></td><td>刚体、碰撞事件、固定步长步进</td></tr>
+    <tr><td>射线检测</td><td><code>three-mesh-bvh</code></td><td>枪械 hitscan、掩体判定、相机防穿墙</td></tr>
+    <tr><td>后处理</td><td><code>postprocessing</code>（vanruesc）</td><td>Bloom、DOF、色差、色调映射</td></tr>
+    <tr><td>资产加载</td><td><code>GLTFLoader</code> + <code>DRACOLoader</code> + <code>KTX2Loader</code></td><td>GLB 模型与压缩纹理</td></tr>
+    <tr><td>调试</td><td><code>lil-gui</code> + <code>stats.js</code></td><td>实时参数滑杆 · 帧率监控</td></tr>
+  </tbody>
+</table>
+
+<p class="legend-inline">参考实现：<a href="https://github.com/2600th/Kinema">Kinema</a>（TypeScript + Three.js + Rapier 的第三人称控制器项目，含角色控制器、后处理、HDR 环境与关卡编辑器，架构可直接借鉴）。</p>
+
+<!-- ══════════════════════════════════════════ 3 -->
+<h2><span class="num">03</span>资产策略（零成本、全 CC0）</h2>
+
+<p>开发者无 3D 建模能力、不购买商业素材。全部资产来自 CC0 公共领域库——<strong>可商用、可修改、免署名</strong>。</p>
+
+<table>
+  <thead><tr><th>来源</th><th>内容</th><th>关键点</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Quaternius<br>Ultimate Space Kit</strong></td>
+      <td>90+ 模型，含<strong>带动画的机甲与敌人</strong>、行星、植被</td>
+      <td>CC0 · Blend/FBX/OBJ/glTF 全格式 · 本作<a href="https://sketchfab.com/3d-models/ultimate-space-kit-84c108ff2bcf4d4cbf2adff74a942822">主资产来源</a></td>
+    </tr>
+    <tr>
+      <td><strong>Quaternius<br>Modular Sci-Fi MegaKit</strong></td>
+      <td>270+ 模块化道具、墙体、门、立柱</td>
+      <td>CC0 · 房间程序化拼接的基础</td>
+    </tr>
+    <tr>
+      <td><strong>Kenney Space Kit</strong></td>
+      <td>约 150 个 3D 文件，模块化太空场景</td>
+      <td>CC0 · <a href="https://kenney.nl/assets/space-kit">kenney.nl</a></td>
+    </tr>
+    <tr>
+      <td><strong>Poly Haven</strong></td>
+      <td>全库 HDRI 环境光 + PBR 纹理 + 模型</td>
+      <td>100% CC0 · 定调光照与金属材质</td>
+    </tr>
+    <tr>
+      <td><strong>ambientCG</strong></td>
+      <td>1500+ 免费 PBR 材质</td>
+      <td>CC0 · 墙面/地板/磨损金属</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="tag">已核实的坑</span>
+  <p>KayKit 的 Combat Mech（带完整动画的机甲角色包）是 <strong>$19.99 起，并非免费</strong>，且条款要求不得原样转售。本设计不使用该包。Quaternius 的 Space Kit 已自带带动画的机甲，覆盖了同样需求且完全免费。</p>
+</div>
+
+<div class="callout warn">
+  <span class="tag">许可警告</span>
+  <p>Poly Haven / Kenney / Quaternius / ambientCG 是全库 CC0。但 <strong>Freesound 与 OpenGameArt 是逐文件混合许可</strong>——部分为 CC-BY（需署名），部分为 CC-BY-SA（<em>衍生作品必须沿用同许可</em>，商业发行时是实质性约束）。本作若从这两处取音效，必须逐文件核对许可证并记录来源清单。</p>
+</div>
+
+<!-- ══════════════════════════════════════════ 4 -->
+<h2><span class="num">04</span>架构：模拟与渲染彻底分离</h2>
+
+<p>这是全案最重要的工程约束。它存在的理由不是「架构好看」，而是<strong>我的可验证范围边界</strong>：游戏规则（伤害公式、敌人决策、房间拼接）是纯逻辑，我能写单元测试自证正确；渲染与手感只能靠人眼判断。两者混写，我就失去了唯一的自测手段。</p>
+
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│  simulation/          ← 唯一真相源 (single source of truth)  │
+│    不 import three，不 import DOM                            │
+│    mech · weapons · enemy-ai · room-gen · relic · damage     │
+│    纯 TypeScript，可用 vitest 独立测试                       │
+└───────────────────────────┬──────────────────────────────────┘
+                            │  每帧输出只读快照 Snapshot
+                            ▼
+      ┌─────────────────────┼─────────────────────┐
+      ▼                     ▼                     ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│  render/      │   │  physics/     │   │  ui/          │
+│   app         │   │   Rapier 世界 │   │   HUD         │
+│   loaders     │   │   碰撞体同步  │   │   遗物选择    │
+│   objects     │   │   固定步长    │   │   死亡结算    │
+│   materials   │   └───────────────┘   └───────────────┘
+│   postfx      │
+└───────┬───────┘
+        ▼
+┌───────────────────────────────────────────────────────────────┐
+│  diagnostics/   stats · 碰撞盒可视化 · **手感参数实时滑杆**   │
+└───────────────────────────────────────────────────────────────┘
+</code></pre>
+
+<h3>单向数据流</h3>
+<pre><code>  输入 (键鼠)                    ← 唯一的外部输入
+      │
+      ▼
+  simulation.update(dt, input)   ← 固定步长 60Hz，可确定性重放
+      │
+      ├──► Snapshot {                每帧新建的只读对象
+      │      mech:   { pos, rot, heat, hp, boostCd, state }
+      │      enemies:[ { id, pos, rot, hp, state } ]
+      │      projectiles, hits, roomState, uiEvents
+      │    }
+      │
+      ├──► render/sync(snapshot)    插值渲染，绝不反向写回
+      ├──► physics/sync(snapshot)   单向推送到 Rapier
+      └──► ui/render(snapshot, uiEvents)
+</code></pre>
+
+<div class="callout">
+  <span class="tag">红线</span>
+  <p><strong>渲染层不得修改 simulation 状态。</strong>所有视觉表现——炮口闪光、机体过热发红、爆炸、屏幕震动——都是对快照的<em>反应</em>，而不是状态的来源。违反这条，我就无法通过测试验证任何游戏逻辑。</p>
+</div>
+
+<h3>为什么手感参数必须做进游戏</h3>
+<p>第三人称镜头是最容易做歪的部分，而我看不到画面。因此<strong>所有手感相关的数值都不写死在代码里</strong>，而是暴露为运行时可调的滑杆：</p>
+<ul>
+  <li>相机 —— 距离、高度偏移、弹簧刚度、阻尼、俯仰限位、鼠标灵敏度</li>
+  <li>移动 —— 加速度、最大速度、摩擦、冲刺距离与冷却</li>
+  <li>战斗 —— 射速、散布、后坐力、热量增量、过热恢复时长</li>
+</ul>
+<p>调试面板导出一个 JSON，你调好手感后把参数发给我，我固化进配置。这条路径把「我看不到画面」这个最大劣势，转化为一个可操作的流程。</p>
+
+<!-- ══════════════════════════════════════════ 5 -->
+<h2><span class="num">05</span>核心玩法</h2>
+
+<h3>单局循环</h3>
+<pre><code>   空投进入区域
+        │
+        ▼
+   ┌─► 清剿房间 ──► 三选一遗物 ──┐
+   │                             │
+   └─────────────────────────────┘
+        │  (重复 3–5 个房间)
+        ▼
+   区域 Boss
+        │
+        ├──► 撤离成功 ──► 永久解锁素材（机体 / 武器 / 起始遗物）
+        └──► 阵亡 ──────► 结算（保留部分解锁进度）
+</code></pre>
+
+<h3>机甲专属的三个机制</h3>
+<p>这三条是本作区别于普通第三人称肉鸽射击的地方，也是「机甲感」的来源。每一项都<strong>同时服务于玩法与画面</strong>：</p>
+
+<table>
+  <thead><tr><th>机制</th><th>玩法作用</th><th>画面表现（特效长在机制上）</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>热量管理</strong></td>
+      <td>开火积热，过热则强制停机数秒。制造「多打两发还是保守」的持续决策，节奏感强于传统换弹</td>
+      <td>散热口蒸汽喷发、装甲由暗转红的热辉光、过热瞬间全屏色差 + 警报音 + 视野边缘红色脉冲</td>
+    </tr>
+    <tr>
+      <td><strong>推进器冲刺</strong></td>
+      <td>冷却式短距冲刺替代跳跃。方向由输入决定，是主要闪避手段，构成攻防节奏的核心</td>
+      <td>推进器尾焰拖尾、起步瞬间的地面冲击波环、冲刺残影、镜头 FOV 快速外扩再回弹</td>
+    </tr>
+    <tr>
+      <td><strong>部位挂载</strong></td>
+      <td>左右手武器 + 背部挂载（导弹巢 / 护盾发生器 / 僚机无人机）。不同组合改变战术定位</td>
+      <td>背部挂载改变机体轮廓剪影；护盾展开时可见六边形能量网格；无人机有自己的引擎光点</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>遗物系统</h3>
+<p>遗物按稀有度分三档。设计红线：<strong>每个遗物改变机制，而非增加百分比数值。</strong>这是肉鸽好不好玩的分水岭——「伤害 +5%」不产生任何决策，「冲刺会留下爆炸残影」会产生全新打法。</p>
+
+<div class="cards">
+  <div class="card common">
+    <div class="rarity">Common 普通</div>
+    <div class="name">增压阀</div>
+    <div class="desc">热量阈值 <strong>+40%</strong>，但过热后停机时间翻倍。用风险换输出窗口。</div>
+  </div>
+  <div class="card rare">
+    <div class="rarity">Rare 稀有</div>
+    <div class="name">爆震护盾</div>
+    <div class="desc">冲刺穿过敌人时造成伤害并击退。<strong>让位移本身成为武器</strong>，改造整个战斗节奏。</div>
+  </div>
+  <div class="card legend">
+    <div class="rarity">Legendary 传说</div>
+    <div class="name">过载核心</div>
+    <div class="desc">过热不再是惩罚：停机期间释放一圈电磁脉冲，瘫痪周围敌人 3 秒。<strong>把负面状态变成主动技</strong>。</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ 6 -->
+<h2><span class="num">06</span>界面草图</h2>
+
+<h4>战斗 HUD</h4>
+<div class="mock">
+  <div class="hud">
+    <div class="hud-grid"></div>
+
+    <div class="hud-tl">
+      <div class="hud-label">Mech Status</div>
+      <div class="bar hp"><span></span></div>
+      <div class="bar heat"><span></span></div>
+      <div class="bar boost"><span></span></div>
+    </div>
+
+    <div class="hud-tr">
+      <div class="hud-label">Room 2 / 5</div>
+      <div style="font-family:var(--mono);font-size:22px;color:#d5dbe5;">03</div>
+      <div style="font-size:10px;color:#64748b;">HOSTILES REMAINING</div>
+    </div>
+
+    <div class="hud-center">
+      <div class="crosshair"></div>
+    </div>
+
+    <div class="enemy-marker" style="left:62%;top:38%;"></div>
+    <div class="enemy-marker" style="left:74%;top:52%;"></div>
+    <div class="enemy-marker" style="left:55%;top:58%;"></div>
+
+    <div class="hud-bl">
+      <div class="hud-label">Loadout</div>
+      <div class="weapon-row">
+        <div class="wslot"><b>R-HAND</b>脉冲炮 <span class="ammo">∞</span></div>
+        <div class="wslot"><b>L-HAND</b>霰弹 <span class="ammo">8</span></div>
+      </div>
+      <div class="relic-strip">
+        <div class="relic r1">◆</div>
+        <div class="relic r1">◆</div>
+        <div class="relic r2">◆</div>
+        <div class="relic r3">◆</div>
+      </div>
+    </div>
+
+    <div class="hud-br">
+      <div class="hud-label">Back Mount</div>
+      <div class="wslot" style="border-color:#4a3a66;">
+        <b>导弹巢 · 6 枚</b>
+        <span style="color:#a07dd6;">冷却中 2.4s</span>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="legend-inline">布局要点：左下承载「机体构成」（武器 + 遗物条），右上承载「房间进度」。血/热/冲刺三条血条竖向堆叠在左上角，因为<strong>热量是本作最需要被余光监控的资源</strong>——它决定你此刻能不能继续开火。</p>
+
+<h4>遗物三选一</h4>
+<div class="mock">
+  <div style="text-align:center;font-size:13px;color:#93a1b5;letter-spacing:2px;margin-bottom:4px;">ROOM CLEARED — SELECT MODULE</div>
+  <div class="cards">
+    <div class="card common">
+      <div class="rarity">Common</div>
+      <div class="name">增压阀</div>
+      <div class="desc">热量阈值 +40%，过热停机时间翻倍</div>
+    </div>
+    <div class="card rare">
+      <div class="rarity">Rare</div>
+      <div class="name">爆震护盾</div>
+      <div class="desc">冲刺穿过敌人造成伤害并击退</div>
+    </div>
+    <div class="card legend">
+      <div class="rarity">Legendary</div>
+      <div class="name">过载核心</div>
+      <div class="desc">过热停机时释放电磁脉冲，瘫痪周围敌人 3 秒</div>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:11px;color:#64748b;margin-top:12px;">[1] [2] [3] 选择 · [R] 重掷（消耗资源）· 选择后不可撤销</div>
+</div>
+
+<!-- ══════════════════════════════════════════ 7 -->
+<h2><span class="num">07</span>第一个里程碑：垂直切片</h2>
+
+<p>不追关卡量，只验证「手感 + 画面」。范围刻意压到最小——如果这个切片手感对了，后续加房间、加敌人、加遗物都是纯粹的量叠加，风险极低。</p>
+
+<table>
+  <thead><tr><th>#</th><th>交付项</th><th>验收标准</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>工程骨架 + Vite/TS/Three 配置</td><td><code>npm run dev</code> 打开浏览器看到空场景，帧率稳定 60</td></tr>
+    <tr><td>2</td><td>程序化房间拼接（Quaternius 模块化套件）</td><td>一个封闭房间，含地板/墙/掩体，有光照与阴影</td></tr>
+    <tr><td>3</td><td>机甲移动 + 推进器冲刺</td><td>WASD 移动、鼠标转向、Shift 冲刺，带加速度与惯性</td></tr>
+    <tr><td>4</td><td>第三人称相机</td><td>弹簧臂跟随、镜头防穿墙、鼠标俯仰限位</td></tr>
+    <tr><td>5</td><td>一把武器：射线检测 + 热量</td><td>左键开火、命中判定正确、热量条累积、过热强制停机</td></tr>
+    <tr><td>6</td><td>两种敌人：冲锋型 + 远程型</td><td>会追击/会保持距离射击，有血条，可被击杀并有死亡爆炸</td></tr>
+    <tr><td>7</td><td>遗物三选一界面</td><td>清空房间后弹出、可选中、效果真实生效</td></tr>
+    <tr><td>8</td><td>调试面板（手感滑杆）</td><td>相机/移动/战斗参数全部可实时调整，可导出 JSON</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="tag">不在本里程碑内</span>
+  <p>音效 · Boss · 永久解锁与存档 · 多种机体 · 多区域 · 主菜单 · 设置界面。这些都属于切片验证通过之后的量叠加阶段。</p>
+</div>
+
+<!-- ══════════════════════════════════════════ 8 -->
+<h2><span class="num">08</span>风险与对策</h2>
+
+<table>
+  <thead><tr><th>风险</th><th>影响</th><th>对策</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>手感调参</strong><br><span class="pill impl">高概率</span></td>
+      <td>第三人称镜头最容易做歪，而 AI 看不到运行画面，可能反复来回</td>
+      <td>全部参数暴露为运行时滑杆 + 导出 JSON；提供「参数怎么调」的说明文档；每个参数附合理区间与默认值</td>
+    </tr>
+    <tr>
+      <td><strong>性能</strong><br><span class="pill impl">中概率</span></td>
+      <td>肉鸽需同时刷大量敌人，粒子一多即掉帧；浏览器端无引擎级优化兜底</td>
+      <td>第一天就上对象池（子弹/敌人/粒子）与敌人 LOD；Bloom 等后处理保持「可关闭可度量」，不允许掩盖可玩性</td>
+    </tr>
+    <tr>
+      <td><strong>范围膨胀</strong><br><span class="pill star">最高风险</span></td>
+      <td>前期引擎调研中最硬的结论：独立项目极少死于引擎选错，几乎都死于范围失控</td>
+      <td>里程碑制。切片必须做到「可玩可停」——任何时刻停下，手上都是一个完整能玩的东西</td>
+    </tr>
+    <tr>
+      <td><strong>CC0 资产风格不统一</strong><br><span class="pill impl">中概率</span></td>
+      <td>Quaternius 与 Kenney 的低模风格不同，混用会造成视觉割裂</td>
+      <td>确定统一的后处理链（色调映射 + 色彩分级 + Bloom 参数）作为「风格统一器」；材质统一走同一套 PBR 参数</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════ 9 -->
+<h2><span class="num">09</span>待决问题</h2>
+
+<ol>
+  <li><strong>项目目录命名</strong> — 本文档暂用 <code>E:\wk_github\mecha-roguelike</code>，可改。</li>
+  <li><strong>美术风格的最终锁定</strong> — 低多边形风格化（当前方案）vs 尝试接近写实。写实需要更精细的材质与光照投入，且在 CC0 资产下较难达成一致。</li>
+  <li><strong>是否为浏览器独占</strong> — 当前为纯 Web。若日后想上 Steam，需要 Tauri/Electron 打包，架构上无阻碍但需早做决定以免影响输入处理方式。</li>
+</ol>
+
+<footer class="doc">
+  <p>本设计文档由对话式头脑风暴产出，记录的是<strong>决策与理由</strong>，而非最终实现细节。里程碑验收通过后，实现细节应另行归档。</p>
+</footer>
+
+</div>
+</body>
+</html>

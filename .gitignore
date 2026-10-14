@@ -1,0 +1,14 @@
+# 诊断与临时产物
+docs/_diag/
+
+# 编辑器与系统
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 若日后引入 Node 工具链
+node_modules/
+dist/
+*.log

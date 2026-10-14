@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>MECHA // ROGUE</title>
+<link rel="stylesheet" href="./styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2314161a'/><rect x='8' y='9' width='16' height='10' fill='%23ff9a3c'/><rect x='6' y='19' width='20' height='4' fill='%23e6e8ec'/></svg>">
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "rapier": "./vendor/rapier/rapier.es.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<!-- ── 加载遮罩 ─────────────────────────────────── -->
+<div id="boot" class="overlay">
+  <div class="boot-inner">
+    <h1 class="logo">MECHA<span class="slash">//</span>ROGUE</h1>
+    <div class="boot-bar"><div id="boot-fill"></div></div>
+    <p id="boot-msg">初始化物理引擎…</p>
+  </div>
+</div>
+
+<!-- ── 战斗 HUD ─────────────────────────────────── -->
+<div id="hud" hidden>
+
+  <div class="hud-corner tl">
+    <div class="label">机体状态</div>
+    <div class="vitals">
+      <div class="vital">
+        <div class="vital-bar hp"><span id="bar-hp"></span></div>
+        <div class="vital-val" id="val-hp">100</div>
+      </div>
+      <div class="vital">
+        <div class="vital-bar heat" id="heat-wrap"><span id="bar-heat"></span></div>
+        <div class="vital-val" id="val-heat">0%</div>
+      </div>
+      <div class="vital">
+        <div class="vital-bar boost"><span id="bar-boost"></span></div>
+        <div class="vital-val" id="val-boost">RDY</div>
+      </div>
+    </div>
+    <div id="overheat-warn" hidden>OVERHEAT</div>
+  </div>
+
+  <div class="hud-corner tr">
+    <div class="label">区域进度</div>
+    <div class="room-num"><span id="val-room">1</span><em>/</em><span id="val-rooms">5</span></div>
+    <div class="enemy-count"><span id="val-enemies">0</span> 剩余敌人</div>
+  </div>
+
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="hitmarker"></div>
+  <div id="damage-vignette"></div>
+
+  <div class="hud-corner bl">
+    <div class="label">挂载</div>
+    <div class="loadout">
+      <div class="wslot" id="slot-r"><b>R · 脉冲炮</b><span class="wmeta">能量 · 无弹药</span></div>
+      <div class="wslot" id="slot-l"><b>L · 散射炮</b><span class="wmeta">动能 · <i id="val-shell">8</i></span></div>
+    </div>
+    <div class="relic-strip" id="relic-strip"></div>
+  </div>
+
+  <div id="toast-stack"></div>
+</div>
+
+<!-- ── 遗物三选一 ───────────────────────────────── -->
+<div id="relic-screen" class="overlay" hidden>
+  <div class="relic-panel">
+    <div class="relic-title">房间肃清 — 选择强化模块</div>
+    <div class="relic-cards" id="relic-cards"></div>
+    <div class="relic-hint"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 选择　·　<kbd>R</kbd> 重掷（消耗 15 核心）</div>
+  </div>
+</div>
+
+<!-- ── 结算 ─────────────────────────────────────── -->
+<div id="gameover" class="overlay" hidden>
+  <div class="over-panel">
+    <h2 id="over-title">机体损毁</h2>
+    <div class="over-stats">
+      <div><span id="over-room">1</span><em>到达房间</em></div>
+      <div><span id="over-kills">0</span><em>击毁单位</em></div>
+      <div><span id="over-relics">0</span><em>获得遗物</em></div>
+    </div>
+    <button id="btn-retry" class="btn-primary">重新空投 <kbd>Enter</kbd></button>
+  </div>
+</div>
+
+<!-- ── 暂停 ─────────────────────────────────────── -->
+<div id="paused" class="overlay" hidden>
+  <div class="over-panel">
+    <h2>已暂停</h2>
+    <p class="paused-hint"><kbd>Esc</kbd> 继续　·　<kbd>F1</kbd> 参数面板　·　<kbd>F3</kbd> 调试信息</p>
+  </div>
+</div>
+
+<div id="perf"></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
