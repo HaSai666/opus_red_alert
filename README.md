@@ -6,14 +6,27 @@
 
 ## 运行
 
-因为使用 ES Module 与 WASM,`file://` 协议下无法运行,需要一个静态服务器:
+### 本地(推荐)
+
+双击 **`启动游戏.bat`**。它会自动找到 Python、挑一个空闲端口、启动服务并打开浏览器。
+
+命令行等价写法:
 
 ```bash
-python -m http.server 8080
-# 然后打开 http://127.0.0.1:8080/
+python scripts/serve.py          # 自动选端口并打开浏览器
+python scripts/serve.py 9000     # 指定端口
+python scripts/serve.py --no-open
 ```
 
-或者直接用在线版本(GitHub Pages)。
+**为什么不能直接双击 `index.html`:** 本项目使用 ES Module 与 WebAssembly,
+浏览器在 `file://` 协议下会以 CORS 为由拒绝加载模块。必须通过 HTTP 提供。
+
+**为什么端口是自动选的:** 8080 常被其它项目占用,写死端口会把别人的页面
+当成自己的打开(开发过程中真的发生过)。
+
+### 在线
+
+https://hasai666.github.io/opus_red_alert/
 
 ## 操作
 
@@ -55,8 +68,27 @@ python -m http.server 8080
 | `?seed=7777` | 固定关卡种子。**不同种子生成不同房间与敌人站位**,对比截图前必须固定,否则两次画面没有可比性 |
 | `?clean=1` | 隐藏全部 HUD,用于评估纯画面 |
 | `?god=1` | 玩家免疫伤害,并压掉受击红闪。用于长时间观察场景而不被敌人打死 |
+| `?nolock=1` | 绕过指针锁定门控,让移动/开火逻辑可被脚本驱动。无头浏览器点不出真实的指针锁定,没有它就无法自动化验证「按 W 到底往哪走」 |
 | `?nofog=1` | 关闭雾 |
 | `?nopostfx=1` | 绕过 EffectComposer 直接渲染场景,用于区分「场景没画出来」与「后处理抹掉了」 |
+
+## 自动化验证
+
+浏览器游戏的多数缺陷**不会抛异常**——方向反了、角色悬空、画面全黑,控制台都是干净的。
+所以 `scripts/` 下带两个基于 Chrome DevTools Protocol 的检查脚本(仅用标准库,无需安装依赖):
+
+```bash
+# 先起服务
+python scripts/serve.py --no-open &
+
+# 1. 冒烟测试:加载页面,报告所有控制台错误、异常与失败请求
+python scripts/smoke-test.py http://127.0.0.1:8123/ 20
+
+# 2. 行为验证:按 W/S 并断言机甲相对相机的实际位移方向
+python scripts/verify-behaviour.py "http://127.0.0.1:8123/?seed=7777&nolock=1"
+```
+
+两个脚本都需要 Chrome 已安装(路径写在脚本顶部的 `CHROME` 常量里)。
 
 ## 架构
 

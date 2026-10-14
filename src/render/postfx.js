@@ -36,7 +36,13 @@ const CompositeShader = {
     uHitFlash:   { value: 0.0 },
     uOverheat:   { value: 0.0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
-    uNoise:      { value: 0.02 },
+    // 胶片颗粒强度。取值必须很小：它是对每个像素逐帧加随机扰动，
+    // 一旦超过约 0.01 就会在静止画面上形成持续可见的噪点，
+    // 主观感受是「糊」而不是「有质感」。0.02 时已经明显影响清晰度。
+    uNoise:      { value: 0.005 },
+    // 锐化强度。轻微锐化能显著改善「被后期流程柔化」后的观感，
+    // 代价只有一次 3×3 采样。
+    uSharpen:    { value: 0.42 },
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -53,6 +59,7 @@ const CompositeShader = {
     uniform float uHitFlash;
     uniform float uOverheat;
     uniform float uNoise;
+    uniform float uSharpen;
     uniform vec2  uResolution;
     varying vec2 vUv;
 
@@ -65,6 +72,7 @@ const CompositeShader = {
       vec2 uv = vUv;
       vec2 center = uv - 0.5;
       float dist = length(center);
+      vec2 texel = 1.0 / uResolution;
 
       // ── 径向色差：越靠画面边缘越明显，强度由外力驱动 ──
       // 过热时始终有一层基础色差，暗示机体不稳定
@@ -78,6 +86,19 @@ const CompositeShader = {
         col.b = texture2D(tDiffuse, uv - dir * off).b;
       } else {
         col = texture2D(tDiffuse, uv).rgb;
+      }
+
+      // ── 锐化 ──
+      // 整个后期链（泛光 + SMAA + 色调映射）都会柔化边缘，
+      // 这里用一次十字拉普拉斯把细节找回来。
+      // 放在色调映射之前操作，避免放大已被压缩的高光。
+      if (uSharpen > 0.001) {
+        vec3 n = texture2D(tDiffuse, uv + vec2(0.0,  texel.y)).rgb;
+        vec3 s = texture2D(tDiffuse, uv + vec2(0.0, -texel.y)).rgb;
+        vec3 e = texture2D(tDiffuse, uv + vec2( texel.x, 0.0)).rgb;
+        vec3 w = texture2D(tDiffuse, uv + vec2(-texel.x, 0.0)).rgb;
+        vec3 blur = (n + s + e + w) * 0.25;
+        col += (col - blur) * uSharpen;
       }
 
       // ── 过热：画面边缘的红色脉冲 ──
@@ -187,6 +208,9 @@ export class PostFX {
     u.uAberration.value = this._aberration;
     u.uHitFlash.value = this._hitFlash;
     u.uOverheat.value = this._overheat;
+    // 从 config 同步颗粒与锐化，让调参面板能实时改动
+    u.uNoise.value = config.fx.grain;
+    u.uSharpen.value = config.fx.sharpen;
   }
 
   /** 触发一次屏幕色差冲击（爆炸、冲刺、重击） */

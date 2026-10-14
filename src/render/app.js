@@ -10,6 +10,7 @@
  */
 
 import * as THREE from 'three';
+import { config } from '../config.js';
 
 export class RenderApp {
   constructor(canvas) {
@@ -18,13 +19,18 @@ export class RenderApp {
     // ── 渲染器 ──
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: false,          // 抗锯齿交给 SMAA 后处理，比 MSAA 便宜
+      // 开启硬件 MSAA。之前关掉它是想省性能、把抗锯齿交给 SMAA，
+      // 但实测「不抗锯齿 + 后期 SMAA」在低分辨率下边缘依旧发毛，
+      // 而 MSAA 由 GPU 硬件承担，代价远小于画面收益。
+      antialias: true,
       powerPreference: 'high-performance',
       stencil: false,
       depth: true,
     });
-    // 限制像素比：4K 屏上 devicePixelRatio=2 会直接把帧率砍半
-    this.pixelRatioCap = 1.75;
+    // 像素比上限。之前是 1.75，在 2x 屏上相当于放弃了近一半的实际像素，
+    // 画面会明显发虚。改为 2 以覆盖主流高 DPI 显示器，
+    // 真正的性能兜底交给下面的动态分辨率机制。
+    this.pixelRatioCap = 2;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.pixelRatioCap));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -204,8 +210,10 @@ export class RenderApp {
   /**
    * 动态分辨率：帧率低于目标时降低渲染分辨率，高于目标时逐步恢复。
    *
-   * 这是应对「肉鸽刷怪时粒子爆炸」这类瞬时负载的最有效手段——
-   * 比事后优化每个特效的粒子数更直接，而且不牺牲视觉设计。
+   * 这是应对「肉鸽刷怪时粒子爆炸」这类瞬时负载的有效手段，
+   * 但下限必须设得克制：分辨率一旦降到 62% 再被放大回屏幕，
+   * 画面会糊成一团，观感损失远大于帧率收益。
+   * 因此下限设在 0.85——留给性能波动的余量，同时不牺牲清晰度。
    *
    * @param {number} dt
    * @param {number} targetFps
@@ -224,8 +232,9 @@ export class RenderApp {
     const fps = 1 / avg;
 
     let next = this._dynScale;
-    if (fps < targetFps * 0.86) {
-      next = Math.max(0.62, this._dynScale - 0.08);
+    if (fps < targetFps * 0.80) {
+      // 降采样步长收窄，避免分辨率忽高忽低造成画面「呼吸」
+      next = Math.max(config.fx.minRenderScale, this._dynScale - 0.05);
     } else if (fps > targetFps * 1.08 && this._dynScale < 1) {
       next = Math.min(1, this._dynScale + 0.05);
     }
@@ -234,6 +243,9 @@ export class RenderApp {
       this._dynScale = next;
       const base = Math.min(window.devicePixelRatio || 1, this.pixelRatioCap);
       this.renderer.setPixelRatio(base * this._dynScale);
+      // 改变像素比会改变绘制缓冲区尺寸，必须重新同步尺寸与投影，
+      // 否则相机 aspect 会与实际视口脱钩（表现为画面拉伸或错位）。
+      this.resize();
       this._lastAdjust = now;
     }
   }

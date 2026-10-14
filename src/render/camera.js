@@ -130,12 +130,17 @@ export class ThirdPersonCamera {
     this.currentDistance += (desired - this.currentDistance) * distLerp;
 
     // ── 相机目标位置 ──
+    // 肩部偏移必须沿**右方向**，而不是前方向。
+    // 早期实现用的是 (cos yaw, -sin yaw)，那是「前方」向量——
+    // 结果镜头不是偏到侧面，而是沿视线方向前后挪动（等于偷偷改变距离），
+    // 同时永远偏不出「过肩视角」的效果。
+    // 右方向 = (cos yaw, 0, -sin yaw)，与移动逻辑和模型朝向同一套约定。
     const shoulderX = Math.cos(yaw) * C.shoulder;
     const shoulderZ = -Math.sin(yaw) * C.shoulder;
 
-    const targetX = this.lookAt.x + dir.x * this.currentDistance + shoulderX * 0.35;
+    const targetX = this.lookAt.x + dir.x * this.currentDistance + shoulderX;
     const targetY = this.lookAt.y + dir.y * this.currentDistance + C.shoulder * 0.5;
-    const targetZ = this.lookAt.z + dir.z * this.currentDistance + shoulderZ * 0.35;
+    const targetZ = this.lookAt.z + dir.z * this.currentDistance + shoulderZ;
 
     // ── 弹簧阻尼积分 ──
     // 用临界阻尼近似的弹簧：a = k*(target - pos) - d*vel

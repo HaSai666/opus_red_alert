@@ -110,9 +110,14 @@ export class PhysicsWorld {
    * @param {number} p.maxSlides 最多滑动几次
    * @returns {{position:{x,y,z}, grounded:boolean, normal:{x,y,z}}}
    */
-  moveCapsule({ position, motion, radius, height, group, mask, maxSlides = 4 }) {
+  moveCapsule({ position, motion, radius, height, group, mask, maxSlides = 6 }) {
     const shape = this._capsuleShape(radius, height);
     const filter = membership(group, mask);
+
+    // 胶囊体几何中心相对「脚底位置」的偏移。
+    // Rapier 的 Capsule(halfHeight, radius) 总高 = 2*halfHeight + 2*radius，
+    // 因此中心到脚底的距离正好是 halfHeight + radius。
+    const centerOffset = (height / 2) + radius;
 
     let pos = { x: position.x, y: position.y, z: position.z };
     let remaining = { x: motion.x, y: motion.y, z: motion.z };
@@ -120,60 +125,94 @@ export class PhysicsWorld {
     let lastNormal = { x: 0, y: 1, z: 0 };
 
     const rot = { x: 0, y: 0, z: 0, w: 1 };
-    const centerOffset = (height / 2) + radius;
+
+    // 起始即穿透的处理上限。防止在极深的穿透里无限推挤。
+    let pushBudget = 4;
 
     for (let i = 0; i < maxSlides; i++) {
       const len = Math.hypot(remaining.x, remaining.y, remaining.z);
 
       // 绝不能因为「位移很小」就跳过查询。
-      // 静止站在地板上时，单步垂直位移只有 gravity×dt² ≈ 0.007m；
-      // 若在此处早退，grounded 会一直停留在初始的 false，
-      // 表现为角色悬空、无法跳跃、相机抖动。
-      // 因此这里只挡真正的零位移，其余一律交给 castShape。
-      if (len < 1e-7) break;
+      // 静止站在地板上时单步垂直位移只有 gravity×dt² ≈ 0.007m，
+      // 一旦早退，grounded 会永远停在初始的 false。
+      if (len < 1e-7) {
+        // 没有剩余位移，但仍需确认脚下是否有支撑——用一次微小下垂探测。
+        if (!grounded && pushBudget > 0) {
+          const probe = this._probeGround(pos, centerOffset, rot, shape, filter);
+          if (probe) {
+            grounded = true;
+            lastNormal = probe.normal;
+            pos = probe.position;
+          }
+        }
+        break;
+      }
 
-      // 胶囊体几何中心相对底部位置的偏移
       const origin = { x: pos.x, y: pos.y + centerOffset, z: pos.z };
       const dir = { x: remaining.x / len, y: remaining.y / len, z: remaining.z / len };
 
-      // Rapier 0.14 的精确签名（顺序极易搞错，务必对照）：
-      //   castShape(shapePos, shapeRot, shapeVel, shape,
-      //             targetDistance, maxToi, stopAtPenetration,
-      //             filterFlags, filterGroups, filterExcludeCollider,
-      //             filterExcludeRigidBody, filterPredicate)
-      // 关键点：shapeVel 与 maxToi 配合决定最远距离（vel 的方向即投射方向，
-      // 长度即速度）；漏掉 targetDistance 会让后续所有参数错位，
-      // maxToi 收到 0 → 恒不命中 → 实体穿过地板自由落体。
       const hit = this.world.castShape(
-        origin,                 // shapePos
-        rot,                    // shapeRot
-        dir,                    // shapeVel（direction × 1，故 maxToi 即距离）
-        shape,                  // shape
+        origin, rot, dir, shape,
         0,                      // targetDistance：提前 0 距离即算命中
-        len,                    // maxToi
-        true,                   // stopAtPenetration
+        len,                    // maxToi（dir 已归一化，故 len 即最远距离）
+        false,                  // stopAtPenetration
         undefined,              // filterFlags
         filter,                 // filterGroups
         undefined, undefined, undefined,
       );
 
-      if (!hit || hit.time_of_impact === null || hit.time_of_impact === undefined) {
-        // 畅通：走完剩余路程
+      if (!hit || hit.time_of_impact === undefined || hit.time_of_impact === null) {
         pos = { x: pos.x + remaining.x, y: pos.y + remaining.y, z: pos.z + remaining.z };
+        // 走完剩余路程后，若这是最后一步，补一次支撑探测
+        if (!grounded && i === maxSlides - 1) {
+          const probe = this._probeGround(pos, centerOffset, rot, shape, filter);
+          if (probe) { grounded = true; lastNormal = probe.normal; pos = probe.position; }
+        }
+        // 不是最后一步的话，剩余路程已走完，可以结束
         break;
       }
 
-      const t = Math.max(0, hit.time_of_impact - 1e-4);
-      pos = { x: pos.x + dir.x * len * t, y: pos.y + dir.y * len * t, z: pos.z + dir.z * len * t };
-
-      // 不同 Rapier 版本把法线放在 normal1 / normal2，或在 witness1 / witness2.intSeg
-      const n = this._extractNormal(hit);
+      const toi = hit.time_of_impact;
+      const n = this._extractNormal(hit, dir);
       lastNormal = n;
 
-      // 法线朝上的面视为地面
+      // ── 关键分支：起始位置已经穿透 ──
+      // Rapier 在这种情况下返回 toi = 0。若照常推进（推进 0 距离）并只把
+      // 剩余位移投影到切平面，位置永远不变，而法线又可能不是竖直的
+      // （斜靠掩体、或胶囊本就在地面里），于是 grounded 判不出来、
+      // 移动完全失效——表现为角色站着不动、重力累积却不下落。
+      // 正确做法是沿法线把胶囊推出穿透区，再继续求解。
+      if (toi < 1e-6) {
+        if (pushBudget > 0) {
+          pushBudget--;
+          // 沿法线推出一小段。真实穿透深度 Rapier 未直接给出，
+          // 用一个与尺寸相关的保守值，配合下一次迭代逐步收敛。
+          const push = Math.max(0.008, radius * 0.35);
+          pos = {
+            x: pos.x + n.x * push,
+            y: pos.y + n.y * push,
+            z: pos.z + n.z * push,
+          };
+          // 法线朝上即视为踩到地面
+          if (n.y > 0.62) grounded = true;
+          // 把剩余位移投影到切平面，继续沿表面滑行
+          const dot = remaining.x * n.x + remaining.y * n.y + remaining.z * n.z;
+          remaining = {
+            x: remaining.x - dot * n.x,
+            y: remaining.y - dot * n.y,
+            z: remaining.z - dot * n.z,
+          };
+          continue;
+        }
+        break;
+      }
+
+      // ── 正常的光滑推进 ──
+      const t = Math.max(0, toi - 1e-4);
+      pos = { x: pos.x + dir.x * len * t, y: pos.y + dir.y * len * t, z: pos.z + dir.z * len * t };
+
       if (n.y > 0.62) grounded = true;
 
-      // 把剩余位移投影到切平面，形成贴墙滑行
       const dot = remaining.x * n.x + remaining.y * n.y + remaining.z * n.z;
       remaining = {
         x: remaining.x - dot * n.x,
@@ -181,32 +220,79 @@ export class PhysicsWorld {
         z: remaining.z - dot * n.z,
       };
 
-      // 移除朝墙内的分量后若几乎不动，就是卡住了，直接退出
-      if (Math.hypot(remaining.x, remaining.y, remaining.z) < 1e-4) break;
+      if (Math.hypot(remaining.x, remaining.y, remaining.z) < 1e-5) break;
     }
 
     return { position: pos, grounded, normal: lastNormal };
   }
 
   /**
-   * 从 castShape 的结果里取出碰撞法线。
+   * 向下探测支撑。
    *
-   * Rapier 各版本把法线放在不同字段：0.11 起用 normal1/normal2，
-   * 更早的版本用 witness1/witness2。逐级回退，避免因版本差异导致
-   * 「法线恒为向上」→ 贴墙滑行和地面判定全部失效。
+   * 存在理由：角色静止站在地面上时，垂直位移只有 gravity×dt² ≈ 0.007m，
+   * 与地面法线的投影会让这一小段位移在数值上被吃掉，导致 grounded 判为 false。
+   * 单独做一次固定距离的下垂探测，可以稳定地判定「脚下有没有东西」。
+   *
+   * @returns {{position:{x,y,z}, normal:{x,y,z}}|null}
    */
-  _extractNormal(hit) {
-    const cands = [
-      hit.normal1, hit.normal2,
-      hit.witness1?.intSeg, hit.witness2?.intSeg,
-    ];
+  _probeGround(pos, centerOffset, rot, shape, filter) {
+    const dist = Math.max(0.02, centerOffset * 0.02);
+    const origin = { x: pos.x, y: pos.y + centerOffset, z: pos.z };
+    const dir = { x: 0, y: -1, z: 0 };
+
+    const hit = this.world.castShape(
+      origin, rot, dir, shape,
+      0, dist, false,
+      undefined, filter, undefined, undefined, undefined,
+    );
+    if (!hit || hit.time_of_impact === undefined || hit.time_of_impact === null) return null;
+
+    const n = this._extractNormal(hit, dir);
+    // 只有朝上的面才算「站得住」
+    if (n.y <= 0.62) return null;
+
+    // 把胶囊贴着地面放下：中心高度 = 地面 + centerOffset
+    const surfaceY = origin.y - hit.time_of_impact;
+    return {
+      position: { x: pos.x, y: surfaceY - centerOffset + 1e-4, z: pos.z },
+      normal: n,
+    };
+  }
+
+  /**
+   * 从 castShape 的结果里取出**朝外的表面法线**。
+   *
+   * 这里有个必须绕开的坑：castShape 返回两个法线，
+   *   normal1 = 投射体自身接触点上的法线
+   *   normal2 = 被撞碰撞体接触点上的法线
+   * 两者方向相反，而 Rapier 并不保证哪个朝外。若固定取 normal1，
+   * 命中地板时可能拿到 (0,-1,0)，于是 n.y = -1 不满足「朝上」的判定，
+   * grounded 永远是 false —— 表现为角色站着却悬空、无法跳跃。
+   *
+   * 稳健做法：取与运动方向**点积最负**的那个。法线必然逆着来向，
+   * 这一判据不依赖 Rapier 的内部约定，换版本也不会失效。
+   *
+   * @param {object} hit castShape 的返回值
+   * @param {{x:number,y:number,z:number}} [dir] 本次投射的方向（应已归一化）
+   */
+  _extractNormal(hit, dir) {
+    const cands = [hit.normal1, hit.normal2];
+    const valid = [];
     for (const c of cands) {
-      if (c && (c.x !== 0 || c.y !== 0 || c.z !== 0)) {
-        const len = Math.hypot(c.x, c.y, c.z);
-        if (len > 1e-6) return { x: c.x / len, y: c.y / len, z: c.z / len };
-      }
+      if (!c) continue;
+      const len = Math.hypot(c.x, c.y, c.z);
+      if (len > 1e-6) valid.push({ x: c.x / len, y: c.y / len, z: c.z / len });
     }
-    return { x: 0, y: 1, z: 0 };
+    if (valid.length === 0) return { x: 0, y: 1, z: 0 };
+    if (valid.length === 1) return valid[0];
+
+    // 有方向信息时按「逆着来向」挑选
+    if (dir) {
+      const d0 = valid[0].x * dir.x + valid[0].y * dir.y + valid[0].z * dir.z;
+      const d1 = valid[1].x * dir.x + valid[1].y * dir.y + valid[1].z * dir.z;
+      return d1 < d0 ? valid[1] : valid[0];
+    }
+    return valid[0];
   }
 
   _capsuleShape(radius, height) {

@@ -290,13 +290,17 @@ export class Simulation {
     }
 
     // ── 水平移动 ──
+    // 坐标约定（全项目唯一约定）：
+    //   yaw = 0 时，前方 = -Z，右方 = +X
+    //   相机位于观察点 + (sin yaw, ·, cos yaw) × 距离，也就是在角色「后方」
+    //   于是前方 = (-sin yaw, -cos yaw)，两者恒为反方向，与相机朝向一致。
+    //
+    // 这个符号极易写反且不会报错：写反时按 W 会朝镜头方向退，
+    // 只能通过「移动前后与相机的距离变化」来验证（scripts/verify-movement）。
     const axis = input.enabled ? input.move : { x: 0, y: 0 };
-    // 相机朝向决定移动的世界方向
     const cy = Math.cos(this.aim.yaw), sy = Math.sin(this.aim.yaw);
-    // 前方向（yaw=0 → -Z）
-    const fx = -sy, fz = -cy;
-    // 右方向
-    const rx = cy, rz = -sy;
+    const fx = -sy, fz = -cy;        // 前方
+    const rx = cy, rz = -sy;         // 右方（前方绕 Y 轴顺时针 90°）
 
     let wishX = fx * axis.y + rx * axis.x;
     let wishZ = fz * axis.y + rz * axis.x;

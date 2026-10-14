@@ -111,6 +111,14 @@ function fatal(err) {
       console.info('[诊断] 已开启无敌（?god=1）');
     }
 
+    // ?nolock=1 绕过指针锁定门控，让移动/开火逻辑可被脚本驱动。
+    // 无头浏览器点不出真实的指针锁定，没有这个开关就无法自动化验证
+    // 「按 W 到底往哪走」这类操作问题——而操作恰恰是最需要反复确认的部分。
+    if (params.has('nolock')) {
+      game.ignorePointerLock = true;
+      console.info('[诊断] 已绕过指针锁定门控（?nolock=1）');
+    }
+
     // 暴露到全局，便于在控制台里调参和排查
     // （这也是设计文档 §4 里「参数可导出」的兜底通道：window.__game.debug 可以直接改）
     window.__game = game;

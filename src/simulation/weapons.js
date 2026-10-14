@@ -29,13 +29,13 @@ export const WEAPONS = {
   },
 };
 
-/** 把 yaw 与 pitch 转成单位方向向量（右手系，-Z 为前方） */
+/** 把 yaw 与 pitch 转成单位方向向量。yaw = 0 时前方为 +Z（与相机约定一致） */
 export function anglesToDir(yaw, pitch) {
   const cp = Math.cos(pitch);
   return {
-    x: -Math.sin(yaw) * cp,
+    x: Math.sin(yaw) * cp,
     y: Math.sin(pitch),
-    z: -Math.cos(yaw) * cp,
+    z: Math.cos(yaw) * cp,
   };
 }
 
@@ -46,15 +46,17 @@ export function anglesToDir(yaw, pitch) {
 function applySpread(dir, spreadRad, rng) {
   if (spreadRad <= 0) return dir;
 
-  // 构造一组与 dir 正交的基向量
+  // 构造一组与 dir 正交的基向量。
+  // 注意叉积顺序：right = up × dir，不是 dir × up。
+  // 写反不会报错，只会让散布方向整体镜像——很难察觉但会让命中分布明显偏斜。
   const up = Math.abs(dir.y) > 0.94 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-  // right = dir × up
-  let rx = dir.y * up.z - dir.z * up.y;
-  let ry = dir.z * up.x - dir.x * up.z;
-  let rz = dir.x * up.y - dir.y * up.x;
+  // right = up × dir
+  let rx = up.y * dir.z - up.z * dir.y;
+  let ry = up.z * dir.x - up.x * dir.z;
+  let rz = up.x * dir.y - up.y * dir.x;
   const rl = Math.hypot(rx, ry, rz) || 1;
   rx /= rl; ry /= rl; rz /= rl;
-  // up2 = right × dir
+  // up2 = right × dir（与 dir、right 正交）
   const ux = ry * dir.z - rz * dir.y;
   const uy = rz * dir.x - rx * dir.z;
   const uz = rx * dir.y - ry * dir.x;

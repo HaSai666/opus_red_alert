@@ -360,6 +360,14 @@ export class Game {
     const phase = this.sim.phase;
     const acceptInput = !paused && (phase === 'playing' || phase === 'relic-choice');
 
+    // 输入门控。
+    //
+    // 正常情况下必须锁定鼠标才接受操作输入（否则鼠标移出窗口还在转视角）。
+    // 但无头浏览器里点不出真实的指针锁定，导致「操作类」改动无法自动化验证——
+    // 只能靠人眼判断，这正是手感问题最容易反复的地方。
+    // 因此提供 ?nolock=1 绕过该门控，让移动/开火逻辑可被脚本驱动与断言。
+    const inputReady = this.ignorePointerLock || this.input.locked;
+
     // ── 1. 输入 → 语义 ──
     const semantic = acceptInput ? {
       move: this.input.moveAxis(),
@@ -371,7 +379,7 @@ export class Game {
       reload: this.input.pressed('KeyR'),
       swap: this.input.pressed('Tab'),
       wheel: this.input.wheel,
-      enabled: this.input.locked && phase === 'playing',
+      enabled: inputReady && phase === 'playing',
     } : {
       move: { x: 0, y: 0 }, aimDX: 0, aimDY: 0,
       fire: false, dash: false, jump: false,
@@ -649,6 +657,13 @@ export class Game {
   _syncMech(mechSnap, dt) {
     const o = this.mechObj;
     o.position.set(mechSnap.pos.x, mechSnap.pos.y, mechSnap.pos.z);
+
+    // 模型朝向：直接使用 yaw，不加额外偏移。
+    //
+    // 建模时刻意把「脸」放在 -Z（胸口核心、头部传感器条、面罩都在负 Z），
+    // 与全局约定「yaw = 0 时前方 = -Z」一致，因此 rotation.y = yaw 就是对的。
+    // 曾经在这里加过 Math.PI 的补偿，那会让机甲倒退着走——
+    // 是「操作很疑惑」的来源之一。
     o.rotation.y = mechSnap.yaw;
 
     // 死亡：向前倾倒
