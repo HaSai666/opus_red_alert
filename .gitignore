@@ -12,3 +12,10 @@ Thumbs.db
 node_modules/
 dist/
 *.log
+
+# Python 缓存(scripts/ 下的工具脚本会产生)
+__pycache__/
+*.pyc
+
+# 调试时临时的提取文件(vendor/rapier/dts 下的参考用文本)
+vendor/rapier/dts/_*.txt
