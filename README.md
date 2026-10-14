@@ -6,11 +6,11 @@
 
 ## 运行
 
-### 本地(推荐)
+### 在线(直接玩)
 
-双击 **`启动游戏.bat`**。它会自动找到 Python、挑一个空闲端口、启动服务并打开浏览器。
+**https://hasai666.github.io/opus_red_alert/**
 
-命令行等价写法:
+### 本地
 
 ```bash
 python scripts/serve.py          # 自动选端口并打开浏览器
@@ -18,13 +18,11 @@ python scripts/serve.py 9000     # 指定端口
 python scripts/serve.py --no-open
 ```
 
-**为什么不能直接双击 `index.html`:** 本项目使用 ES Module 与 WebAssembly,
-浏览器在 `file://` 协议下会以 CORS 为由拒绝加载模块。必须通过 HTTP 提供。
+**为什么需要本地服务器:** 本项目使用 ES Module 与 WebAssembly,
+浏览器在 `file://` 协议下会以 CORS 为由拒绝加载模块,直接双击 `index.html` 无效。
 
 **为什么端口是自动选的:** 8080 常被其它项目占用,写死端口会把别人的页面
 当成自己的打开(开发过程中真的发生过)。
-
-### 在线
 
 https://hasai666.github.io/opus_red_alert/
 
